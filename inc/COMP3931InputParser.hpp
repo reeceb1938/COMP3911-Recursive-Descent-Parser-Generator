@@ -22,6 +22,7 @@ namespace ParserGenreator {
         Language language;
 
         bool parse_terminal_declaration(std::string line);
+        bool parse_nonterminal_declaration(std::string line);
     };
 } // namespace ParserGenreator
 

@@ -39,12 +39,18 @@ InputParser::InputParser(std::string input_filename) {
                     break;
                 case STAGE_2_NONTERMINALS:
                     spdlog::trace("Parsing stage 2 (non-terminals)");
+                    if (parse_nonterminal_declaration(line)) {
+                        stage = STAGE_3_PRODUCTIONS;
+                    } else {
+                        stage = STAGE_ERROR;
+                    }
                     break;
                 case STAGE_3_PRODUCTIONS:
                     spdlog::trace("Parsing stage 3 (productions)");
                     break;
                 default:
                     spdlog::critical("Unknown parser state. How did we get here?");
+                    stage = STAGE_ERROR;
             }
         }
 
@@ -62,6 +68,7 @@ InputParser::~InputParser() {
 // the temrinals of the grammar as defined in the input file specification
 bool InputParser::parse_terminal_declaration(std::string line) {
     std::size_t line_index = 0;
+    // NOTE: terminal_start_index = 0 represents no value (instead of -1) because std::size_t is unsigned and it should never be 0 as line[0] == `T`
     std::size_t terminal_start_index = 0;
     bool last_char_escape = false;  // Was the previously seen character `\`
 
@@ -99,7 +106,6 @@ bool InputParser::parse_terminal_declaration(std::string line) {
                         break;
                     }
 
-                    // NOTE: 0 represents no value (instead of -1) because std::size_t is unsigned and it should never be 0 as line[0] == `T`
                     if (terminal_start_index == 0) {
                         terminal_start_index = line_index;
                     }
@@ -111,8 +117,7 @@ bool InputParser::parse_terminal_declaration(std::string line) {
                         std::size_t terminal_end_index = line.find_first_of(" \t\r,", terminal_start_index + 1);
 
                         if (terminal_end_index == std::string::npos) {
-                            spdlog::error("Internal error. Could not find end of terminal declaration");
-                            break;
+                            terminal_end_index = line.length();
                         }
 
                         std::string new_terminal = line.substr(terminal_start_index, terminal_end_index - terminal_start_index);
@@ -128,9 +133,95 @@ bool InputParser::parse_terminal_declaration(std::string line) {
 
                         terminal_start_index = 0;
                     } else {
-                        // NOTE: 0 represents no value (instead of -1) because std::size_t is unsigned and it should never be 0 as line[0] == `T`
                         if (terminal_start_index == 0) {
                             terminal_start_index = line_index;
+                        }
+                    }
+                }
+            }
+        }
+
+        line_index++;
+    }
+
+    return line_index > line.length();
+}
+
+bool InputParser::parse_nonterminal_declaration(std::string line) {
+    std::size_t line_index = 0;
+    // NOTE: nonterminal_start_index = 0 represents no value (instead of -1) because std::size_t is unsigned and it should never be 0 as line[0] == `T`
+    std::size_t nonterminal_start_index = 0;
+    bool last_char_escape = false;  // Was the previously seen character `\`
+
+    while (line_index <= line.length()) {
+        if (line_index == 0) {
+            if (line[line_index] != 'N') {
+                spdlog::error("Parsing nonterminal declaration failed. Invalid syntax");
+                spdlog::info("Terminal declaraion should start `NT:` but found: `{}`", line);
+                break;
+            }
+        } else if (line_index == 1) {
+            if (line[line_index] != 'T') {
+                spdlog::error("Parsing nonterminal declaration failed. Invalid syntax");
+                spdlog::info("Terminal declaraion should start `NT:` but found: `{}`", line);
+                break;
+            }
+        } else if(line_index == 2) {
+            if (line[line_index] != ':') {
+                spdlog::error("Parsing nonterminal declaration failed. Invalid syntax");
+                spdlog::info("Terminal declaraion should start `NT:` but found: `{}`", line);
+                break;
+            }
+        } else {
+            // Parse each item in the comma seperated list of nonterminals
+
+            if (line[line_index] == ' ' || line[line_index] == '\t') {
+
+            } else {
+                if (last_char_escape == true) {
+                    last_char_escape = false;
+
+                    // Replace escaped charatcers
+                    if (line[line_index] == '\\') {
+                        line.replace(line_index - 1, 2, "\\");
+                        line_index--;
+                    } else if (line[line_index] == ',') {
+                        line.replace(line_index - 1, 2, ",");
+                        line_index--;
+                    } else {
+                        spdlog::error("Unknown escape sequence in nonterminal list: `{}`", line.substr(line_index - 1, 2));
+                        break;
+                    }
+
+                    if (nonterminal_start_index == 0) {
+                        nonterminal_start_index = line_index;
+                    }
+                } else {
+                    if (line[line_index] == '\\') {
+                        last_char_escape = true;
+                    } else if (line[line_index] == ',' || line[line_index] == '\0') {
+                        // End of terminal definition
+                        std::size_t nonterminal_end_index = line.find_first_of(" \t\r,", nonterminal_start_index + 1);
+
+                        if (nonterminal_end_index == std::string::npos) {
+                            nonterminal_end_index = line.length();
+                        }
+
+                        std::string new_nonterminal = line.substr(nonterminal_start_index, nonterminal_end_index - nonterminal_start_index);
+
+                        spdlog::trace("Found nonterminal: `{}` ({} : {})", new_nonterminal, nonterminal_start_index, nonterminal_end_index);
+
+                        std::pair<std::set<std::string>::iterator,bool> ret;
+                        ret = language.nonterminals.insert(new_nonterminal);
+
+                        if (ret.second == false) {
+                            spdlog::warn("Found duplicate definition of nonterminal `{}`. Ignoring second definition", new_nonterminal);
+                        }
+
+                        nonterminal_start_index = 0;
+                    } else {
+                        if (nonterminal_start_index == 0) {
+                            nonterminal_start_index = line_index;
                         }
                     }
                 }
