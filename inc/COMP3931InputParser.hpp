@@ -16,13 +16,15 @@ namespace ParserGenreator {
             STAGE_ERROR,
             STAGE_1_TERMINALS,
             STAGE_2_NONTERMINALS,
-            STAGE_3_PRODUCTIONS
+            STAGE_3_PRODUCTIONS,
+            STAGE_3_PRODUCTION_RULES
         };
 
         Language language;
 
         bool parse_terminal_declaration(std::string line);
         bool parse_nonterminal_declaration(std::string line);
+        bool parse_production_rule(std::string line);
     };
 } // namespace ParserGenreator
 

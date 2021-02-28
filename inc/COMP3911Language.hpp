@@ -12,7 +12,13 @@ namespace ParserGenreator {
         ~Language();
         std::set<std::string> terminals;
         std::set<std::string> nonterminals;
-        std::unordered_map<std::string, std::set<std::string>> production_rules; 
+        std::unordered_map<std::string, std::set<std::string>> production_rules;
+
+        // Check that the sets of terminals and nonterminals are disjoint
+        bool validate_sets();
+
+        // Output language to log
+        void log_language();
     };
 } // namespace ParserGenreator
 
