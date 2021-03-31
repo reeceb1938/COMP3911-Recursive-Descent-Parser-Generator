@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
 
-#include "COMP3931InputParser.hpp"
+#include "COMP3931Grammar.hpp"
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/sinks/basic_file_sink.h"
@@ -28,7 +28,8 @@ int main(int argc, char const* argv[]) {
         return 1;
     }
 
-    ParserGenreator::InputParser parser(argv[1]);
+    ParserGenreator::Grammar grammar;
+    grammar.input_language_from_file(argv[1]);
 
     // spdlog::warn("Easy padding in numbers like {:08d}", 12);
     // spdlog::critical("Support for int: {0:d};  hex: {0:x};  oct: {0:o}; bin: {0:b}", 42);

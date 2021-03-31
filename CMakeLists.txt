@@ -26,6 +26,6 @@ add_subdirectory(lib)
 # Build the components
 # add_subdirectory(${comp3931_SOURCE_DIR}/src)
 include_directories(inc)
-add_executable(COMP3911 src/main.cpp src/COMP3911Language.cpp src/COMP3931InputParser.cpp)
+add_executable(COMP3911 src/main.cpp src/COMP3931Grammar.cpp)
 
 target_link_libraries(COMP3911 PRIVATE spdlog)
