@@ -2,9 +2,10 @@
 #define __COMP3931_GRAMMAR_NEW_HEADER__
 
 #include <list>
-#include <string>
 #include <set>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace ParserGenreator {
 
@@ -28,14 +29,14 @@ namespace ParserGenreator {
         std::string get_value();
 
         void add_child(EBNFToken* new_child);
-        std::list<EBNFToken*>& get_children();
+        std::vector<EBNFToken*>& get_children();
 
         std::string to_string() const;
 
     private:
         TokenType type;
         std::string value;
-        std::list<EBNFToken*> children;
+        std::vector<EBNFToken*> children;
     };
 
     // Class to represnet the defined grammar
@@ -53,13 +54,17 @@ namespace ParserGenreator {
         bool is_terminal(std::string to_find);
         bool is_nonterminal(std::string to_find);
 
-        void log_language();
+        bool can_produce_ll_parser();
+
+        void log_grammar();
 
     private:
         std::set<std::string> terminals;
         std::set<std::string> nonterminals;
         std::unordered_map<std::string, EBNFToken*> production_rules;
         std::string start_symbol;
+        std::unordered_map<std::string, std::set<std::string>> first_sets;
+        std::unordered_map<std::string, std::set<std::string>> follow_sets;
 
         // Functions to parse a grammar input file
         bool file_parse_INPUT_FILE(std::ifstream& input);
@@ -76,6 +81,13 @@ namespace ParserGenreator {
         bool file_parse_skip_white_space(std::ifstream& input);
         bool file_parse_end_of_line(std::ifstream& input);
         bool file_parse_check_char(std::ifstream& input, char character);
+
+        // Functions to validate the grammar can be used to produce an LL(1) parser
+        bool calculate_first_set();
+        // Calculate the terminals that need to be added to the first set for a particular nonterminal
+        std::set<std::string> calculate_first_terminal(EBNFToken* ebnf_token);
+
+        bool calculate_follow_set();
     };
 
 } // namespace ParserGenreator

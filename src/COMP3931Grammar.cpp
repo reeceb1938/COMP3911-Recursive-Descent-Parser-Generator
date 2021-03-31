@@ -1,7 +1,10 @@
+#include <algorithm>
 #include <fstream>
-#include <map>
+#include <list>
 #include <set>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "COMP3931Grammar.hpp"
 #include "spdlog/spdlog.h"
@@ -38,7 +41,7 @@ void EBNFToken::add_child(EBNFToken* new_child) {
     children.push_back(new_child);
 }
 
-std::list<EBNFToken*>& EBNFToken::get_children() {
+std::vector<EBNFToken*>& EBNFToken::get_children() {
     return children;
 }
 
@@ -205,7 +208,12 @@ bool Grammar::is_nonterminal(std::string to_find) {
     return !(nonterminals.find(to_find) == nonterminals.end());
 }
 
-void Grammar::log_language() {
+// Determine if the grammar, in its current state, would produce a valid LL(1) parser
+bool Grammar::can_produce_ll_parser() {
+    return calculate_first_set();
+}
+
+void Grammar::log_grammar() {
     // Log terminals
     std::string tmp;
     for (const std::string terminal : terminals) {
@@ -224,6 +232,29 @@ void Grammar::log_language() {
     spdlog::info("Start symbol: `{}`", start_symbol);
 
     // Log productions
+    spdlog::info("Production Rules:");
+
+    for (std::pair<std::string, EBNFToken*> production : production_rules) {
+        if (production.second != nullptr) {
+            spdlog::info("{} ::= {}", production.first, production.second->to_string());
+        } else {
+            spdlog::info("{} ::=", production.first);
+        }
+    }
+
+    // Log first set
+    spdlog::info("First sets:");
+
+    for (std::pair<std::string, std::set<std::string>> first_set : first_sets) {
+        std::string first_set_list = "";
+
+        for (std::string terminal : first_set.second) {
+            first_set_list += terminal;
+            first_set_list += ", ";
+        }
+
+        spdlog::info("First({}) = {}", first_set.first, first_set_list);
+    }
 }
 
 bool Grammar::file_parse_INPUT_FILE(std::ifstream& input) {
@@ -278,8 +309,6 @@ bool Grammar::file_parse_INPUT_FILE(std::ifstream& input) {
     }
 
     spdlog::info("Parsing productions");
-
-    log_language();
 
     if (!file_parse_GRAM_DECLAR(input)) {
         return false;
@@ -579,7 +608,7 @@ bool Grammar::file_parse_RHS(std::ifstream& input, EBNFToken* new_rhs) {
         i = input.peek();
     }
 
-    std::list<EBNFToken*>& children = new_token->get_children();
+    std::vector<EBNFToken*>& children = new_token->get_children();
 
     if (children.size() == 1) {
         new_rhs->add_child(children.front());
@@ -820,4 +849,146 @@ bool Grammar::file_parse_check_char(std::ifstream& input, char character) {
     }
 
     return true;
+}
+
+bool Grammar::calculate_first_set() {
+    spdlog::trace("Calculating first set");
+    // First(terminal) = {terminal}
+    for (std::string terminal : terminals) {
+        first_sets.insert({terminal, std::set<std::string>({terminal})});
+    }
+
+    // Initlaise empty sets for each of the non-terminals
+    for (std::string nonterminal : nonterminals) {
+        first_sets.insert({nonterminal, std::set<std::string>()});
+    }
+
+    // Compute the First sets
+    bool sets_have_changed = true;
+
+    while (sets_have_changed) {
+        sets_have_changed = false;
+
+        for (std::pair<std::string, EBNFToken*> ebnf_production : production_rules) {
+            std::string production_lhs = ebnf_production.first;
+            EBNFToken* productions = ebnf_production.second;
+
+            if (productions == nullptr) {
+                continue;
+            }
+
+            std::unordered_map<std::string, std::set<std::string>>::iterator old_first_set_it = first_sets.find(production_lhs);
+            if (old_first_set_it == first_sets.end()) {
+                spdlog::error("Error looking up first set for nonterminal `{}`", production_lhs);
+            }
+            std::set<std::string>& old_first_set = old_first_set_it->second;
+
+            std::set<std::string> new_first_set = calculate_first_terminal(productions);
+
+            // Check if the new first set is the same as the old one
+            for (std::string terminal : new_first_set) {
+                if (old_first_set.count(terminal) != 1) {
+                    sets_have_changed = true;
+                    old_first_set.insert(terminal);
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+// Calculate the terminals to appear in the first set for nonterminal using its EBNF production tree
+// NOTE: This function assumes that the EBNF production tree is valid. There is little to no error checking
+std::set<std::string> Grammar::calculate_first_terminal(EBNFToken* ebnf_token) {
+    std::set<std::string> local_first_set;
+
+    if (ebnf_token == nullptr) {
+        spdlog::error("Internal error. EBNF parser tree invalid while computing first set");
+        return local_first_set;
+    }
+
+    spdlog::trace("Calculating terminals from `{}`", ebnf_token->to_string());
+
+    std::vector<EBNFToken*>& ebnf_token_children = ebnf_token->get_children();
+
+    switch (ebnf_token->get_type()) {
+        case EBNFToken::TokenType::SEQUENCE: {
+            std::set<std::string> tmp_set = calculate_first_terminal(ebnf_token_children[0]);
+            local_first_set.insert(tmp_set.begin(), tmp_set.end());
+
+            if (tmp_set.count("EPSILON") == 1) {
+                // We copied the entire tmp_set to local_first_set but shouldn'y have copied EPSILON, if it existed
+                local_first_set.erase("EPSILON");
+            }
+
+            bool contains_epsilon = tmp_set.count("EPSILON") == 1;
+            int i = 0;
+
+            while (contains_epsilon && (i < ebnf_token_children.size() - 1)) {
+                tmp_set = calculate_first_terminal(ebnf_token_children[i + 1]);
+                local_first_set.insert(tmp_set.begin(), tmp_set.end());
+
+                if (tmp_set.count("EPSILON") == 1) {
+                    // We copied the entire tmp_set to local_first_set but shouldn't have copied EPSILON, if it existed
+                    local_first_set.erase("EPSILON");
+                }
+
+                i++;
+                contains_epsilon = tmp_set.count("EPSILON") == 1;
+            }
+
+            tmp_set = calculate_first_terminal(ebnf_token_children[ebnf_token_children.size() - 1]);
+            if (i == ebnf_token_children.size() - 1 && tmp_set.count("EPSILON") == 1) {
+                local_first_set.insert("EPSILON");
+            }
+        }
+        break;
+        case EBNFToken::TokenType::TERMINAL:
+            local_first_set.insert(ebnf_token->get_value());
+            break;
+        case EBNFToken::TokenType::NONTERMINAL: {
+            // Join the sets of local_first_set and first(NONTERMINAL)
+            std::unordered_map<std::string, std::set<std::string>>::iterator current_token_first_set_it = first_sets.find(ebnf_token->get_value());
+
+            if (current_token_first_set_it == first_sets.end()) {
+                spdlog::error("Error calculating first sets. Couldn't find first set for `{}`", ebnf_token->get_value());
+                return local_first_set;
+            }
+
+            local_first_set.insert(current_token_first_set_it->second.begin(), current_token_first_set_it->second.end());
+        }
+        break;
+        case EBNFToken::TokenType::OR:
+            for (EBNFToken* new_ebnf_token : ebnf_token_children) {
+                std::set<std::string> tmp_set = calculate_first_terminal(new_ebnf_token);
+                local_first_set.insert(tmp_set.begin(), tmp_set.end());
+            }
+            break;
+        case EBNFToken::TokenType::REPEAT:
+        case EBNFToken::TokenType::OPTIONAL:
+            local_first_set = calculate_first_terminal(ebnf_token_children[0]);
+            local_first_set.insert("EPSILON");    // Optional and Repeat may become the empty string
+            break;
+        case EBNFToken::TokenType::GROUP:
+            local_first_set = calculate_first_terminal(ebnf_token_children[0]);
+            break;
+        default:
+            spdlog::error("Unkown type of EBNFToken when calculating terminals for first set");
+    }
+
+    std::string first_set_list = "";
+
+    for (std::string terminal : local_first_set) {
+        first_set_list += terminal;
+        first_set_list += ", ";
+    }
+
+    spdlog::trace("First({}) = {}", ebnf_token->to_string(), first_set_list);
+
+    return local_first_set;
+}
+
+bool Grammar::calculate_follow_set() {
+    return false;
 }
