@@ -6,12 +6,15 @@ To define a grammar as input to this program create a text file in to form descr
 
 ### Terminals
 
-The first line of the grammar definition file should be of the form `T: A, B, C`, where `A, B, C` is the comma separated list of terminals. To include the comma symbol as a terminal escape it with a backslash (\\).
+The first line of the grammar definition file should be of the form `T: a, b, c`, where `a, b, c` is the comma separated list of terminals. To include the comma symbol as a terminal escape it with a backslash (\\).
+
+We use the convention that terminals are lower case.
 
 #### Pre-defined Terminals
 
 | Symbol | Meaning |
 | - | - |
+| epsilon | The empty word
 | identifier | Any user specified identifier, e.g. names of variables / classes
 | integer_constant | Any valid decimal number
 | string_literal | Any string literal
@@ -20,13 +23,13 @@ The first line of the grammar definition file should be of the form `T: A, B, C`
 
 The second line of the grammar definition file should be of the form `NT: A, B, C`, where `A, B, C` is the comma separated list of non-terminals. To include the comma symbol as a terminal escape it with a backslash (\\).
 
-#### Pre-defined Non-terminals
+We use the convention that non-temrinals are in all upper case.
 
-| Symbol | Meaning |
-| - | - |
-| EPSILON | The empty word
+### Non-Allowed Symbols
 
-### Production Rules
+For internal use the class uses `eof` when computing the follow sets, so this cannot appear as either a terminal or non-terminal.
+
+### Production Rules & Start Symbol
 
 The block of production rules is declared after the non-terminal declaration and starts with the line `P:` followed by any number of lines of the form `NONTERMINAL ::= PRODUCTION`, where `NONTERMINAL` is a single NONTERMINAL (because this is a regular grammar) and `PRODUCTION` is the set of productions in BNF or EBNF form.
 

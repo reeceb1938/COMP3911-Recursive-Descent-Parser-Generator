@@ -88,6 +88,8 @@ namespace ParserGenreator {
         std::set<std::string> calculate_first_terminal(EBNFToken* ebnf_token);
 
         bool calculate_follow_set();
+        // Calculate the terminals that need to be added to the follow set for a particular nonterminal
+        bool calculate_follow_terminal(std::string production_lhs, EBNFToken* ebnf_token, std::vector<std::set<std::string>>& current_trailers);
     };
 
 } // namespace ParserGenreator

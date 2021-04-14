@@ -133,6 +133,11 @@ bool Grammar::input_language_from_file(std::string file_path) {
 }
 
 bool Grammar::add_terminal(std::string new_terminal) {
+    if (new_terminal == "eof") {
+        spdlog:error("Attempting to add terminal `{}` not allowed. Please see README.md section `Non-Allowed symbols`", new_terminal);
+        return false;
+    }
+
     if (nonterminals.find(new_terminal) != nonterminals.end()) {
         spdlog::error("Attempting to add terminal `{}` but it is already declared as a nonterminal", new_terminal);
         return false;
@@ -148,8 +153,13 @@ bool Grammar::add_terminal(std::string new_terminal) {
 }
 
 bool Grammar::add_nonterminal(std::string new_nonterminal) {
+    if (new_nonterminal == "eof") {
+        spdlog:error("Attempting to add nonterminal `{}` not allowed. Please see README.md section `Non-Allowed symbols`", new_nonterminal);
+        return false;
+    }
+
     if (terminals.find(new_nonterminal) != terminals.end()) {
-        spdlog::error("Attempting to add terminal `{}` but it is already declared as a nonterminal", new_nonterminal);
+        spdlog::error("Attempting to add nonterminal `{}` but it is already declared as a nonterminal", new_nonterminal);
         return false;
     }
 
@@ -210,7 +220,10 @@ bool Grammar::is_nonterminal(std::string to_find) {
 
 // Determine if the grammar, in its current state, would produce a valid LL(1) parser
 bool Grammar::can_produce_ll_parser() {
-    return calculate_first_set();
+    bool first_set_success = calculate_first_set();
+    bool follow_set_success = calculate_follow_set();
+
+    return first_set_success && follow_set_success;
 }
 
 void Grammar::log_grammar() {
@@ -254,6 +267,20 @@ void Grammar::log_grammar() {
         }
 
         spdlog::info("First({}) = {}", first_set.first, first_set_list);
+    }
+
+    // Log follow set
+    spdlog::info("Follow sets:");
+
+    for (std::pair<std::string, std::set<std::string>> follow_set : follow_sets) {
+        std::string follow_set_list = "";
+
+        for (std::string terminal : follow_set.second) {
+            follow_set_list += terminal;
+            follow_set_list += ", ";
+        }
+
+        spdlog::info("Follow({}) = {}", follow_set.first, follow_set_list);
     }
 }
 
@@ -880,6 +907,7 @@ bool Grammar::calculate_first_set() {
             std::unordered_map<std::string, std::set<std::string>>::iterator old_first_set_it = first_sets.find(production_lhs);
             if (old_first_set_it == first_sets.end()) {
                 spdlog::error("Error looking up first set for nonterminal `{}`", production_lhs);
+                return false;
             }
             std::set<std::string>& old_first_set = old_first_set_it->second;
 
@@ -895,7 +923,7 @@ bool Grammar::calculate_first_set() {
         }
     }
 
-    return false;
+    return true;
 }
 
 // Calculate the terminals to appear in the first set for nonterminal using its EBNF production tree
@@ -908,7 +936,7 @@ std::set<std::string> Grammar::calculate_first_terminal(EBNFToken* ebnf_token) {
         return local_first_set;
     }
 
-    spdlog::trace("Calculating terminals from `{}`", ebnf_token->to_string());
+    spdlog::trace("Calculating terminals from `{}` for first set", ebnf_token->to_string());
 
     std::vector<EBNFToken*>& ebnf_token_children = ebnf_token->get_children();
 
@@ -918,7 +946,7 @@ std::set<std::string> Grammar::calculate_first_terminal(EBNFToken* ebnf_token) {
             local_first_set.insert(tmp_set.begin(), tmp_set.end());
 
             if (tmp_set.count("EPSILON") == 1) {
-                // We copied the entire tmp_set to local_first_set but shouldn'y have copied EPSILON, if it existed
+                // We copied the entire tmp_set to local_first_set but shouldn't have copied EPSILON, if it existed
                 local_first_set.erase("EPSILON");
             }
 
@@ -990,5 +1018,209 @@ std::set<std::string> Grammar::calculate_first_terminal(EBNFToken* ebnf_token) {
 }
 
 bool Grammar::calculate_follow_set() {
-    return false;
+    spdlog::trace("Calculating follow set");
+
+    // Initlaise empty sets for each of the non-terminals
+    for (std::string nonterminal : nonterminals) {
+        follow_sets.insert({nonterminal, std::set<std::string>()});
+    }
+
+    // Follow(S) = eof
+    follow_sets.find(start_symbol)->second.insert("eof");
+
+    // Compute the Follow sets
+    bool sets_have_changed = true;
+
+    while (sets_have_changed) {
+        sets_have_changed = false;
+
+        for (std::pair<std::string, EBNFToken*> ebnf_production : production_rules) {
+            std::string production_lhs = ebnf_production.first;
+            EBNFToken* productions = ebnf_production.second;
+
+            if (productions == nullptr) {
+                continue;
+            }
+
+            // Get the follow set of A
+            std::unordered_map<std::string, std::set<std::string>>::iterator lhs_follow_set_it = follow_sets.find(production_lhs);
+            if (lhs_follow_set_it == follow_sets.end()) {
+                spdlog::error("Error looking up follow set for nonterminal `{}`", production_lhs);
+                return false;
+            }
+            std::set<std::string> lhs_follow_set = lhs_follow_set_it->second;
+
+            spdlog::trace("Updating follow sets from production `{} ::= {}`", production_lhs, productions->to_string());
+
+            std::vector<std::set<std::string>> trailer = {};
+            trailer.push_back(lhs_follow_set);
+
+            bool did_child_change_sets = calculate_follow_terminal(production_lhs, productions, trailer);
+
+            if (did_child_change_sets == true) {
+                sets_have_changed = true;
+            }
+        }
+    }
+
+    return true;
+}
+
+// Update the Follow sets from a production (or part of a production)
+bool Grammar::calculate_follow_terminal(std::string production_lhs, EBNFToken* ebnf_token, std::vector<std::set<std::string>>& current_trailers) {
+    if (ebnf_token == nullptr) {
+        spdlog::error("Internal error. EBNF parser tree invalid while computing follow set");
+        return false;
+    }
+
+    std::vector<EBNFToken*>& ebnf_token_children = ebnf_token->get_children();
+    bool has_changed_sets = false;
+
+    switch (ebnf_token->get_type()) {
+        case EBNFToken::TokenType::SEQUENCE:
+        {
+            for (int i = ebnf_token_children.size() - 1; i >= 0; i--) {
+                bool did_child_change_sets = calculate_follow_terminal(production_lhs, ebnf_token_children[i], current_trailers);
+
+                if (did_child_change_sets == true) {
+                    has_changed_sets = true;
+                }
+            }
+        }
+            break;
+        case EBNFToken::TokenType::TERMINAL:
+        {
+            // Get the first set of ebnf_token
+            std::unordered_map<std::string, std::set<std::string>>::iterator terminal_first_set_it = first_sets.find(ebnf_token->get_value());
+            if (terminal_first_set_it == first_sets.end()) {
+                spdlog::error("Error looking up first set for terminal `{}`", ebnf_token->to_string());
+                return false;
+            }
+
+            // Remove all other trailers and set trailer to the first set of the terminal
+            current_trailers.clear();
+            current_trailers.push_back(terminal_first_set_it->second);
+        }
+            break;
+        case EBNFToken::TokenType::NONTERMINAL:
+        {
+            // Get the follow set of NONTERMINAL
+            std::unordered_map<std::string, std::set<std::string>>::iterator nonterminal_follow_set_it = follow_sets.find(ebnf_token->get_value());
+            if (nonterminal_follow_set_it == follow_sets.end()) {
+                spdlog::error("Error looking up follow set for nonterminal `{}`", ebnf_token->to_string());
+                return false;
+            }
+            std::set<std::string>& nonterminal_follow_set = nonterminal_follow_set_it->second;
+
+            // Add the current trailer set to the nonterminal follow set
+            // NOTE: We do this item by item manually so we can tell if the Follow set was updated (i.e. a new element was added)
+            for (std::set<std::string> current_trailer : current_trailers) {
+                for (std::string s : current_trailer) {
+                    spdlog::trace("Adding `{}` to Follow({})", s, ebnf_token->to_string());
+                    std::pair<std::set<std::string>::iterator, bool> insert_status = nonterminal_follow_set.insert(s);
+
+                    if (insert_status.second == true) {
+                        // A new item was inserted, hence the set changed
+                        has_changed_sets = true;
+                    }
+                }
+            }
+
+            // Get the first set of NONTERMINAL
+            std::unordered_map<std::string, std::set<std::string>>::iterator nonterminal_first_set_it = first_sets.find(ebnf_token->get_value());
+            if (nonterminal_first_set_it == first_sets.end()) {
+                spdlog::error("Error looking up first set for nonterminal `{}`", ebnf_token->to_string());
+                return false;
+            }
+            std::set<std::string>& nonterminal_first_set = nonterminal_first_set_it->second;
+
+            if (nonterminal_first_set.count("EPSILON") == 1) {
+                // Add the first set of the nonterminal (minus epsilon) to each trailer
+                for (std::set<std::string>& current_trailer : current_trailers) {
+                    current_trailer.insert(nonterminal_first_set.begin(), nonterminal_first_set.end());
+                    current_trailer.erase("EPSILON");       // EPSILON shouldn't have been copied
+                }
+            } else {
+                // Remove all other trailers and set trailer to the first set of the nonterminal
+                current_trailers.clear();
+                current_trailers.push_back(nonterminal_first_set);
+            }
+        }
+            break;
+        case EBNFToken::TokenType::OR:
+        {
+            std::vector<std::set<std::string>> original_trailers = current_trailers;
+
+            for (int i = ebnf_token_children.size() - 1; i >= 0; i--) {
+                std::vector<std::set<std::string>> new_trailers = original_trailers;
+                bool did_child_change_sets = calculate_follow_terminal(production_lhs, ebnf_token_children[i], new_trailers);
+
+                if (did_child_change_sets == true) {
+                    has_changed_sets = true;
+                }
+
+                current_trailers.insert(current_trailers.end(), new_trailers.begin(), new_trailers.end());
+            }
+        }
+            break;
+        case EBNFToken::TokenType::REPEAT:
+        {
+            std::vector<std::set<std::string>> original_trailers = current_trailers;
+
+            for (int i = ebnf_token_children.size() - 1; i >= 0; i--) {
+                std::vector<std::set<std::string>> new_trailers = original_trailers;
+                bool did_child_change_sets = calculate_follow_terminal(production_lhs, ebnf_token_children[i], new_trailers);
+
+                if (did_child_change_sets == true) {
+                    has_changed_sets = true;
+                }
+
+                current_trailers.insert(current_trailers.end(), new_trailers.begin(), new_trailers.end());
+            }
+        }
+            break;
+        case EBNFToken::TokenType::OPTIONAL:
+        {
+            std::vector<std::set<std::string>> original_trailers = current_trailers;
+
+            for (int i = ebnf_token_children.size() - 1; i >= 0; i--) {
+                std::vector<std::set<std::string>> new_trailers = original_trailers;
+                bool did_child_change_sets = calculate_follow_terminal(production_lhs, ebnf_token_children[i], new_trailers);
+
+                if (did_child_change_sets == true) {
+                    has_changed_sets = true;
+                }
+
+                current_trailers.insert(current_trailers.end(), new_trailers.begin(), new_trailers.end());
+            }
+        }
+            break;
+        case EBNFToken::TokenType::GROUP:
+        {
+            std::vector<std::set<std::string>> original_trailers = current_trailers;
+
+            // Check if group can become epsilon
+            std::set<std::string> tmp_first_set = calculate_first_terminal(ebnf_token);
+            if (tmp_first_set.count("EPSILON") == 0) {
+                // The group cannot become epsilon. Hence, the trailer after the group is finished should not contain the trailers from before the group
+                current_trailers.clear();
+            }
+
+            for (int i = ebnf_token_children.size() - 1; i >= 0; i--) {
+                std::vector<std::set<std::string>> new_trailers = current_trailers;
+                bool did_child_change_sets = calculate_follow_terminal(production_lhs, ebnf_token_children[i], new_trailers);
+
+                if (did_child_change_sets == true) {
+                    has_changed_sets = true;
+                }
+
+                current_trailers.insert(current_trailers.end(), new_trailers.begin(), new_trailers.end());
+            }
+        }
+            break;
+        default:
+            spdlog::error("Unkown type of EBNFToken when calculating follow set");
+    }
+
+    return has_changed_sets;
 }

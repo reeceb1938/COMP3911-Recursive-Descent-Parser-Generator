@@ -12,7 +12,7 @@ int main(int argc, char const* argv[]) {
     // stdout_sink->set_level(spdlog::level::warn);
     stdout_sink->set_level(spdlog::level::trace);
 
-    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_st>("log.txt");
+    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_st>("output.log");
     file_sink->set_level(spdlog::level::trace);
 
     spdlog::sinks_init_list sink_list = {file_sink, stdout_sink};
