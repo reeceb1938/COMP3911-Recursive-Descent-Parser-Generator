@@ -2,6 +2,7 @@
 #include <vector>
 
 #include "COMP3931Grammar.hpp"
+#include "COMP3931ParserGenerator.hpp"
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/sinks/basic_file_sink.h"
@@ -22,19 +23,23 @@ int main(int argc, char const* argv[]) {
 
     spdlog::trace("Setup complete");
 
-    if (argc != 2) {
+    if (argc != 3) {
         spdlog::error("Invalid number of parameters");
-        spdlog::info("Correct usage: {} [input file name]", argv[0]);
+        spdlog::info("Correct usage: {} [input file name] [output file name]", argv[0]);
         return 1;
     }
 
-    ParserGenreator::Grammar grammar;
+    ParserGenerator::Grammar grammar;
     grammar.input_language_from_file(argv[1]);
 
     bool valid = grammar.can_produce_ll_parser();
     spdlog::info("Is valid? {}", valid);
 
     grammar.log_grammar();
+
+    spdlog::info("Generating parser");
+
+    ParserGenerator::Generator pg(grammar, argv[1]);
 
     // spdlog::warn("Easy padding in numbers like {:08d}", 12);
     // spdlog::critical("Support for int: {0:d};  hex: {0:x};  oct: {0:o}; bin: {0:b}", 42);

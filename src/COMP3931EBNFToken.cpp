@@ -4,7 +4,7 @@
 #include "COMP3931EBNFToken.hpp"
 #include "spdlog/spdlog.h"
 
-using namespace ParserGenreator;
+using namespace ParserGenerator;
 
 /*
  * EBNFToken Class

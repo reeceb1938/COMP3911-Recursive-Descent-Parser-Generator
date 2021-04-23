@@ -9,7 +9,7 @@
 
 #include "COMP3931EBNFToken.hpp"
 
-namespace ParserGenreator {
+namespace ParserGenerator {
 
     // Class to represnet the defined grammar
     class Grammar {
@@ -64,6 +64,6 @@ namespace ParserGenreator {
         bool calculate_follow_terminal(std::string production_lhs, EBNFToken* ebnf_token, std::vector<std::set<std::string>>& current_trailers);
     };
 
-} // namespace ParserGenreator
+} // namespace ParserGenerator
 
 #endif

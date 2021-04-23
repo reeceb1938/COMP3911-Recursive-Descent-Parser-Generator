@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace ParserGenreator {
+namespace ParserGenerator {
     // Class to represent items in the parse tree of an EBNF production rule
     class EBNFToken {
     public:
@@ -34,6 +34,6 @@ namespace ParserGenreator {
         std::string value;
         std::vector<EBNFToken*> children;
     };
-} // namespace ParserGenreator
+} // namespace ParserGenerator
 
 #endif
