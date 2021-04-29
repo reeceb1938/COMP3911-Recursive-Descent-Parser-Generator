@@ -32,14 +32,11 @@ int main(int argc, char const* argv[]) {
     ParserGenerator::Grammar grammar;
     grammar.input_language_from_file(argv[1]);
 
-    bool valid = grammar.can_produce_ll_parser();
-    spdlog::info("Is valid? {}", valid);
-
     grammar.log_grammar();
 
     spdlog::info("Generating parser");
 
-    ParserGenerator::Generator pg(grammar, argv[1]);
+    ParserGenerator::Generator pg(grammar, argv[2]);
 
     // spdlog::warn("Easy padding in numbers like {:08d}", 12);
     // spdlog::critical("Support for int: {0:d};  hex: {0:x};  oct: {0:o}; bin: {0:b}", 42);

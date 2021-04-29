@@ -16,9 +16,7 @@ using namespace ParserGenerator;
  * Grammar Class
  */
 
-Grammar::Grammar() {
-
-}
+Grammar::Grammar() {}
 
 Grammar::~Grammar() {
     for (const std::pair<std::string, EBNFToken*>& production : production_rules) {
@@ -63,6 +61,8 @@ bool Grammar::add_terminal(std::string new_terminal) {
     return true;
 }
 
+std::set<std::string>& Grammar::get_terminals() { return terminals; }
+
 bool Grammar::add_nonterminal(std::string new_nonterminal) {
     if (new_nonterminal == "eof") {
         spdlog::error("Attempting to add nonterminal `{}` not allowed. Please see README.md section `Non-Allowed symbols`", new_nonterminal);
@@ -85,6 +85,8 @@ bool Grammar::add_nonterminal(std::string new_nonterminal) {
 
     return true;
 }
+
+std::set<std::string>& Grammar::get_nonterminals() { return nonterminals; }
 
 bool Grammar::add_production(std::string nonterminal, EBNFToken* new_production) {
     if (start_symbol == "") {
@@ -110,6 +112,8 @@ bool Grammar::add_production(std::string nonterminal, EBNFToken* new_production)
     return true;
 }
 
+std::unordered_map<std::string, EBNFToken*>& Grammar::get_all_productions() { return production_rules; }
+
 bool Grammar::set_start_symbol(std::string new_start_symbol) {
     if (nonterminals.find(new_start_symbol) == nonterminals.end()) {
         spdlog::error("Attempting to set start symbol as `{}` but `{}` is not declared as a nonterminal", new_start_symbol, new_start_symbol);
@@ -121,6 +125,8 @@ bool Grammar::set_start_symbol(std::string new_start_symbol) {
     return true;
 }
 
+std::string Grammar::get_start_symbol() { return start_symbol; }
+
 bool Grammar::is_terminal(std::string to_find) {
     return !(terminals.find(to_find) == terminals.end());
 }
@@ -129,13 +135,13 @@ bool Grammar::is_nonterminal(std::string to_find) {
     return !(nonterminals.find(to_find) == nonterminals.end());
 }
 
-// Determine if the grammar, in its current state, would produce a valid LL(1) parser
-bool Grammar::can_produce_ll_parser() {
-    bool first_set_success = calculate_first_set();
-    bool follow_set_success = calculate_follow_set();
-
-    return first_set_success && follow_set_success;
+void Grammar::finalize_grammar() {
+    calculate_all_first_sets();
+    calculate_all_follow_sets();
+    is_final = true;
 }
+
+bool Grammar::get_is_final() { return is_final; }
 
 void Grammar::log_grammar() {
     // Log terminals
@@ -192,6 +198,20 @@ void Grammar::log_grammar() {
         }
 
         spdlog::info("Follow({}) = {}", follow_set.first, follow_set_list);
+    }
+}
+
+std::set<std::string> Grammar::calculate_first_set(EBNFToken* ebnf_token) {
+    return calculate_first_terminal(ebnf_token);
+}
+
+std::set<std::string> Grammar::get_follow_set(std::string nonterminal) {
+    std::unordered_map<std::string, std::set<std::string>>::const_iterator follow_itr = follow_sets.find(nonterminal);
+
+    if (follow_itr == follow_sets.end()) {
+        return std::set<std::string>();
+    } else {
+        return follow_itr->second;
     }
 }
 
@@ -789,7 +809,7 @@ bool Grammar::file_parse_check_char(std::ifstream& input, char character) {
     return true;
 }
 
-bool Grammar::calculate_first_set() {
+bool Grammar::calculate_all_first_sets() {
     spdlog::trace("Calculating first set");
     // First(terminal) = {terminal}
     for (std::string terminal : terminals) {
@@ -900,6 +920,7 @@ std::set<std::string> Grammar::calculate_first_terminal(EBNFToken* ebnf_token) {
         break;
         case EBNFToken::TokenType::OR:
             for (EBNFToken* new_ebnf_token : ebnf_token_children) {
+                // TODO: Add detection of first/first conflicts here
                 std::set<std::string> tmp_set = calculate_first_terminal(new_ebnf_token);
                 local_first_set.insert(tmp_set.begin(), tmp_set.end());
             }
@@ -928,7 +949,7 @@ std::set<std::string> Grammar::calculate_first_terminal(EBNFToken* ebnf_token) {
     return local_first_set;
 }
 
-bool Grammar::calculate_follow_set() {
+bool Grammar::calculate_all_follow_sets() {
     spdlog::trace("Calculating follow set");
 
     // Initlaise empty sets for each of the non-terminals
