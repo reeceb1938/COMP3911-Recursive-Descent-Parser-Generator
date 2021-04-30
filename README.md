@@ -12,11 +12,13 @@ We use the convention that terminals are lower case.
 
 #### Pre-defined Terminals
 
+These terminals are automatically added to the grammar so do not need to be listed in the input gramamr.
+
 | Symbol | Meaning |
 | - | - |
 | epsilon | The empty word
 | identifier | Any user specified identifier, e.g. names of variables / classes
-| integer_constant | Any valid decimal number
+| numeric_constant | Any valid decimal number
 | string_literal | Any string literal
 
 ### Non-terminals

@@ -172,7 +172,7 @@ bool Generator::generate_source_file() {
         code_file << std::endl;
 
         // If the production can disappear then we don't need to add a node for it in the parse tree
-        if (grammar.calculate_first_set(production.second).count("EPSILON") == 1) {
+        if (grammar.calculate_first_set(production.second).count("epsilon") == 1) {
             code_file << "\tif (new_node->get_children().size() > 0) {" << std::endl;
             code_file << "\t\tparse_tree_parent->add_child(new_node);" << std::endl;
             code_file << "\t} else {" << std::endl;
@@ -240,7 +240,7 @@ bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* eb
             break;
         case EBNFToken::TokenType::TERMINAL:
             // Handle cases of epsilon, string_literal, identifier, integer_constant
-            if (ebnf_token->get_value() == "EPSILON") {
+            if (ebnf_token->get_value() == "epsilon") {
                 code_file << "// Produces epsilon so do nothing" << std::endl;
                 success = true;
             } else {
@@ -315,7 +315,7 @@ bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* eb
             code_file << "next_token = lexer.peak_next_token();" << std::endl;
             for (int i = 0; i < ebnf_token_children.size(); i++) {
                 std::set<std::string> first_set = grammar.calculate_first_set(ebnf_token_children[i]);
-                first_set.erase("EPSILON");     // Remove EPSILON because it doesn't actually appear in the input stream
+                first_set.erase("epsilon");     // Remove epsilon because it doesn't actually appear in the input stream
 
                 if (first_set.size() == 0) {
                     continue;
@@ -358,7 +358,7 @@ bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* eb
             }
 
             std::set<std::string> first_set = grammar.calculate_first_set(ebnf_token);
-            if (first_set.count("EPSILON") == 0) {
+            if (first_set.count("epsilon") == 0) {
                 code_file << " else {" << std::endl;
                 indent(code_file, indentation_level + 1);
                 code_file << "parsing_error(next_token, \"" << ebnf_token->to_string() << "\");" << std::endl;
@@ -370,7 +370,7 @@ bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* eb
             break;
         case EBNFToken::TokenType::REPEAT: {
             std::set<std::string> first_set = grammar.calculate_first_set(ebnf_token_children[0]);
-            first_set.erase("EPSILON");     // Remove EPSILON because it doesn't actually appear in the input stream
+            first_set.erase("epsilon");     // Remove epsilon because it doesn't actually appear in the input stream
 
             if (first_set.size() == 0) {
                 success = true;
@@ -418,7 +418,7 @@ bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* eb
             break;
         case EBNFToken::TokenType::OPTIONAL: {
             std::set<std::string> first_set = grammar.calculate_first_set(ebnf_token_children[0]);
-            first_set.erase("EPSILON");     // Remove EPSILON because it doesn't actually appear in the input stream
+            first_set.erase("epsilon");     // Remove epsilon because it doesn't actually appear in the input stream
 
             if (first_set.size() == 0) {
                 success = true;

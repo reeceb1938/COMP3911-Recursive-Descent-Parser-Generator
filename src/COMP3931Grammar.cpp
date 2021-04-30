@@ -16,7 +16,11 @@ using namespace ParserGenerator;
  * Grammar Class
  */
 
-Grammar::Grammar() {}
+Grammar::Grammar() {
+    add_terminal("numeric_constant");
+    add_terminal("string_literal");
+    add_terminal("epsilon");
+}
 
 Grammar::~Grammar() {
     for (const std::pair<std::string, EBNFToken*>& production : production_rules) {
@@ -876,30 +880,30 @@ std::set<std::string> Grammar::calculate_first_terminal(EBNFToken* ebnf_token) {
             std::set<std::string> tmp_set = calculate_first_terminal(ebnf_token_children[0]);
             local_first_set.insert(tmp_set.begin(), tmp_set.end());
 
-            if (tmp_set.count("EPSILON") == 1) {
-                // We copied the entire tmp_set to local_first_set but shouldn't have copied EPSILON, if it existed
-                local_first_set.erase("EPSILON");
+            if (tmp_set.count("epsilon") == 1) {
+                // We copied the entire tmp_set to local_first_set but shouldn't have copied epsilon, if it existed
+                local_first_set.erase("epsilon");
             }
 
-            bool contains_epsilon = tmp_set.count("EPSILON") == 1;
+            bool contains_epsilon = tmp_set.count("epsilon") == 1;
             int i = 0;
 
             while (contains_epsilon && (i < ebnf_token_children.size() - 1)) {
                 tmp_set = calculate_first_terminal(ebnf_token_children[i + 1]);
                 local_first_set.insert(tmp_set.begin(), tmp_set.end());
 
-                if (tmp_set.count("EPSILON") == 1) {
-                    // We copied the entire tmp_set to local_first_set but shouldn't have copied EPSILON, if it existed
-                    local_first_set.erase("EPSILON");
+                if (tmp_set.count("epsilon") == 1) {
+                    // We copied the entire tmp_set to local_first_set but shouldn't have copied epsilon, if it existed
+                    local_first_set.erase("epsilon");
                 }
 
                 i++;
-                contains_epsilon = tmp_set.count("EPSILON") == 1;
+                contains_epsilon = tmp_set.count("epsilon") == 1;
             }
 
             tmp_set = calculate_first_terminal(ebnf_token_children[ebnf_token_children.size() - 1]);
-            if (i == ebnf_token_children.size() - 1 && tmp_set.count("EPSILON") == 1) {
-                local_first_set.insert("EPSILON");
+            if (i == ebnf_token_children.size() - 1 && tmp_set.count("epsilon") == 1) {
+                local_first_set.insert("epsilon");
             }
         }
         break;
@@ -928,7 +932,7 @@ std::set<std::string> Grammar::calculate_first_terminal(EBNFToken* ebnf_token) {
         case EBNFToken::TokenType::REPEAT:
         case EBNFToken::TokenType::OPTIONAL:
             local_first_set = calculate_first_terminal(ebnf_token_children[0]);
-            local_first_set.insert("EPSILON");    // Optional and Repeat may become the empty string
+            local_first_set.insert("epsilon");    // Optional and Repeat may become the empty string
             break;
         case EBNFToken::TokenType::GROUP:
             local_first_set = calculate_first_terminal(ebnf_token_children[0]);
@@ -1066,11 +1070,11 @@ bool Grammar::calculate_follow_terminal(std::string production_lhs, EBNFToken* e
             }
             std::set<std::string>& nonterminal_first_set = nonterminal_first_set_it->second;
 
-            if (nonterminal_first_set.count("EPSILON") == 1) {
+            if (nonterminal_first_set.count("epsilon") == 1) {
                 // Add the first set of the nonterminal (minus epsilon) to each trailer
                 for (std::set<std::string>& current_trailer : current_trailers) {
                     current_trailer.insert(nonterminal_first_set.begin(), nonterminal_first_set.end());
-                    current_trailer.erase("EPSILON");       // EPSILON shouldn't have been copied
+                    current_trailer.erase("epsilon");       // epsilon shouldn't have been copied
                 }
             } else {
                 // Remove all other trailers and set trailer to the first set of the nonterminal
@@ -1133,7 +1137,7 @@ bool Grammar::calculate_follow_terminal(std::string production_lhs, EBNFToken* e
 
             // Check if group can become epsilon
             std::set<std::string> tmp_first_set = calculate_first_terminal(ebnf_token);
-            if (tmp_first_set.count("EPSILON") == 0) {
+            if (tmp_first_set.count("epsilon") == 0) {
                 // The group cannot become epsilon. Hence, the trailer after the group is finished should not contain the trailers from before the group
                 current_trailers.clear();
             }
