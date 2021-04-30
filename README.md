@@ -43,6 +43,36 @@ In this implementation the follow assumptions are made:
 
 - Any non-terminal that does not have any production rules defined for it produces the empty word
 
+## Build Instructions
+
+To build the main project:
+```
+mkdir build
+cd build
+cmake ..
+make
+```
+
+To build the test project:
+- Build the main project as above
+- Run the main project: `./COMP3911 jack.txt JACKCompiler` where `jack.txt` is the input file defining the JACK grammar
+- Copy the resulting `JACKCompiler.cpp` and `JACKCompiler.hpp` files to `test` directory: `cp JACKCompiler.* ../test/`
+- Build the test project (from the project root directory):
+```
+mkdir test/build
+cd test/build
+cmake ..
+make
+```
+- Run the test project (using `Array.jack` as an example): `./COMP3931Test ../data/Array.jack`
+- View the parse tree with GNUplot:
+```
+cp parse-tree.out ..
+cd ..
+gnuplot gnuplot.gnu
+open test.png
+```
+
 ## References & Licences
 
 References for external content
@@ -51,3 +81,4 @@ References for external content
 | - | - | - |
 | .gitignore templates | .gitignore | [CC 1.0 Universal](https://github.com/github/gitignore/blob/master/LICENSE) |
 | spdlog | Logging library | [MIT](https://github.com/gabime/spdlog/blob/v1.x/LICENSE) |
+| CustomJACKLexer | Testing | N/A - My work from another project |
