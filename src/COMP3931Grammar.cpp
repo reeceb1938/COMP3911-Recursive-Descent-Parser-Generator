@@ -924,7 +924,6 @@ std::set<std::string> Grammar::calculate_first_terminal(EBNFToken* ebnf_token) {
         break;
         case EBNFToken::TokenType::OR:
             for (EBNFToken* new_ebnf_token : ebnf_token_children) {
-                // TODO: Add detection of first/first conflicts here
                 std::set<std::string> tmp_set = calculate_first_terminal(new_ebnf_token);
                 local_first_set.insert(tmp_set.begin(), tmp_set.end());
             }

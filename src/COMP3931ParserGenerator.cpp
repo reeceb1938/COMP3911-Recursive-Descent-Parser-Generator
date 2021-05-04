@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <fstream>
 
 #include "COMP3931ParserGenerator.hpp"
@@ -13,10 +14,6 @@ using namespace ParserGenerator;
 Generator::Generator(Grammar& grammar, std::string output_file_name) : grammar(grammar), output_file_name(output_file_name) {
     if (!grammar.get_is_final()) {
         grammar.finalize_grammar();
-    } else {
-        // TODO: Add grammar checks
-        // spdlog::error("Cannot generate parser with given grammar. Grammar is unsuitable");
-        // return;
     }
 
     generate();
@@ -27,8 +24,14 @@ Generator::~Generator() {
 }
 
 bool Generator::generate() {
-    generate_header_file();
-    generate_source_file();
+    bool header_status = generate_header_file();
+    bool code_status = generate_source_file();
+
+    if (header_status == false || code_status == false) {
+        // Something failed - delete the files as they are invalid
+        remove((output_file_name + ".hpp").c_str());
+        remove((output_file_name + ".cpp").c_str());
+    }
 
     return false;
 }
@@ -114,6 +117,8 @@ bool Generator::generate_source_file() {
         return false;
     }
 
+    bool status = false;
+
     // Write source code file includes
     code_file << "#include <fstream>" << std::endl;
     code_file << "#include <queue>" << std::endl;
@@ -170,39 +175,45 @@ bool Generator::generate_source_file() {
         code_file << "\t}" << std::endl;
         code_file << std::endl;
 
-        generate_production_code(code_file, production.second, 1);
+        status = generate_production_code(code_file, production.second, 1);
         code_file << std::endl;
 
         code_file << "}" << std::endl << std::endl;
+
+        if (status == false) {
+            break;
+        }
     }
     code_file << std::endl;
 
-    // Write debug printing of parse tree functions
-    code_file << "void " << output_file_name << "::parse_tree_gnu_plot() {" << std::endl;
-    code_file << "\tstd::ofstream file = std::ofstream(\"parse-tree.out\");" << std::endl;
-    code_file << "\tif (!file) {" << std::endl;
-    code_file << "\t\treturn;" << std::endl;
-    code_file << "\t}" << std::endl << std::endl;
-    code_file << "\tint node_id_counter = 1;" << std::endl;
-    code_file << "\tstd::queue<std::pair<int, ParseTreeNode*>> node_queue;" << std::endl;
-    code_file << "\tnode_queue.push(std::pair<int, ParseTreeNode*>(-1, parse_tree_root));" << std::endl;
-    code_file << std::endl;
-    code_file << "\twhile (!node_queue.empty()) {" << std::endl;
-    code_file << "\t\tstd::pair<int, ParseTreeNode*> current_node = node_queue.front();" << std::endl << std::endl;
-    code_file << "\t\tif (current_node.first == -1) {" << std::endl;
-    code_file << "\t\t\tfile << node_id_counter << \" NaN \" << std::endl;" << std::endl;
-    code_file << "\t\t} else {" << std::endl;
-    code_file << "\t\t\tfile << node_id_counter << \" \" << current_node.first << \" \" << current_node.second->get_token() << std::endl;" << std::endl;
-    code_file << "\t\t}" << std::endl << std::endl;
-    code_file << "\t\t for (ParseTreeNode* child : current_node.second->get_children()) {" << std::endl;
-    code_file << "\t\t\t" << "node_queue.push(std::pair<int, ParseTreeNode*>(node_id_counter, child));" << std::endl;
-    code_file << "\t\t}" << std::endl << std::endl;
-    code_file << "\t\tnode_id_counter++;" << std::endl;
-    code_file << "\t\tnode_queue.pop();" << std::endl;
-    code_file << "\t}" << std::endl;
-    code_file << "}" << std::endl << std::endl;
+    if (status == true) {
+        // Write debug printing of parse tree functions
+        code_file << "void " << output_file_name << "::parse_tree_gnu_plot() {" << std::endl;
+        code_file << "\tstd::ofstream file = std::ofstream(\"parse-tree.out\");" << std::endl;
+        code_file << "\tif (!file) {" << std::endl;
+        code_file << "\t\treturn;" << std::endl;
+        code_file << "\t}" << std::endl << std::endl;
+        code_file << "\tint node_id_counter = 1;" << std::endl;
+        code_file << "\tstd::queue<std::pair<int, ParseTreeNode*>> node_queue;" << std::endl;
+        code_file << "\tnode_queue.push(std::pair<int, ParseTreeNode*>(-1, parse_tree_root));" << std::endl;
+        code_file << std::endl;
+        code_file << "\twhile (!node_queue.empty()) {" << std::endl;
+        code_file << "\t\tstd::pair<int, ParseTreeNode*> current_node = node_queue.front();" << std::endl << std::endl;
+        code_file << "\t\tif (current_node.first == -1) {" << std::endl;
+        code_file << "\t\t\tfile << node_id_counter << \" NaN \" << std::endl;" << std::endl;
+        code_file << "\t\t} else {" << std::endl;
+        code_file << "\t\t\tfile << node_id_counter << \" \" << current_node.first << \" \" << current_node.second->get_token() << std::endl;" << std::endl;
+        code_file << "\t\t}" << std::endl << std::endl;
+        code_file << "\t\t for (ParseTreeNode* child : current_node.second->get_children()) {" << std::endl;
+        code_file << "\t\t\t" << "node_queue.push(std::pair<int, ParseTreeNode*>(node_id_counter, child));" << std::endl;
+        code_file << "\t\t}" << std::endl << std::endl;
+        code_file << "\t\tnode_id_counter++;" << std::endl;
+        code_file << "\t\tnode_queue.pop();" << std::endl;
+        code_file << "\t}" << std::endl;
+        code_file << "}" << std::endl << std::endl;
+    }
 
-    return true;
+    return status;
 }
 
 bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* ebnf_token, int indentation_level) {
@@ -302,11 +313,32 @@ bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* eb
             success = true;
             break;
         case EBNFToken::TokenType::OR: {
+            // Check for first / first conflicts
+            std::set<std::set<std::string>> all_first_sets = std::set<std::set<std::string>>();
+            std::set<std::string> first_set;
+            for (int i = 0; i < ebnf_token_children.size(); i++) {
+                first_set = grammar.calculate_first_set(ebnf_token_children[i]);
+
+                // Check the sets are disjoint
+                for (const std::set<std::string>& other_first_set : all_first_sets) {
+                    for (const std::string& symbol : first_set) {
+                        if (other_first_set.count(symbol) != 0) {
+                            // Sets are not disjoint: symbol is in both first_set and other_first_set
+                            spdlog::error("First/First conflict detected for `{}`. Symbol `{}` appears in more than one First set.", ebnf_token->to_string(), symbol);
+                            return false;
+                        }
+                    }
+                }
+
+                all_first_sets.insert(first_set);
+            }
+
+            // Generate the approriate code
             bool is_first = true;
             indent(code_file, indentation_level);
             code_file << "next_token = lexer.peak_next_token();" << std::endl;
             for (int i = 0; i < ebnf_token_children.size(); i++) {
-                std::set<std::string> first_set = grammar.calculate_first_set(ebnf_token_children[i]);
+                first_set = grammar.calculate_first_set(ebnf_token_children[i]);
                 first_set.erase("epsilon");     // Remove epsilon because it doesn't actually appear in the input stream
 
                 if (first_set.size() == 0) {
@@ -349,7 +381,7 @@ bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* eb
                 }
             }
 
-            std::set<std::string> first_set = grammar.calculate_first_set(ebnf_token);
+            first_set = grammar.calculate_first_set(ebnf_token);
             if (first_set.count("epsilon") == 0) {
                 code_file << " else {" << std::endl;
                 indent(code_file, indentation_level + 1);
