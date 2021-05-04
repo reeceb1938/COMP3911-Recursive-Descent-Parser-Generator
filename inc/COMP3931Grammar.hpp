@@ -41,6 +41,7 @@ namespace ParserGenerator {
         void log_grammar();
 
         std::set<std::string> calculate_first_set(EBNFToken* ebnf_token);
+        std::set<std::string> get_first_set(std::string symbol);
         std::set<std::string> get_follow_set(std::string nonterminal);
 
     private:

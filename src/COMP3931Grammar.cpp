@@ -209,6 +209,16 @@ std::set<std::string> Grammar::calculate_first_set(EBNFToken* ebnf_token) {
     return calculate_first_terminal(ebnf_token);
 }
 
+std::set<std::string> Grammar::get_first_set(std::string symbol) {
+    std::unordered_map<std::string, std::set<std::string>>::const_iterator first_itr = first_sets.find(symbol);
+
+    if (first_itr == first_sets.end()) {
+        return std::set<std::string>();
+    } else {
+        return first_itr->second;
+    }
+}
+
 std::set<std::string> Grammar::get_follow_set(std::string nonterminal) {
     std::unordered_map<std::string, std::set<std::string>>::const_iterator follow_itr = follow_sets.find(nonterminal);
 

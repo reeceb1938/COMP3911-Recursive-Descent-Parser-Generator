@@ -11,7 +11,7 @@ int main(int argc, char const* argv[]) {
     // Create a logger to stdout and  a logger to a text file
     auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_st>();
     // stdout_sink->set_level(spdlog::level::warn);
-    stdout_sink->set_level(spdlog::level::trace);
+    stdout_sink->set_level(spdlog::level::info);
 
     auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_st>("output.log");
     file_sink->set_level(spdlog::level::trace);
@@ -32,6 +32,7 @@ int main(int argc, char const* argv[]) {
     ParserGenerator::Grammar grammar;
     grammar.input_language_from_file(argv[1]);
 
+    grammar.finalize_grammar();
     grammar.log_grammar();
 
     spdlog::info("Generating parser");

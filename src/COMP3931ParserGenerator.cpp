@@ -16,6 +16,22 @@ Generator::Generator(Grammar& grammar, std::string output_file_name) : grammar(g
         grammar.finalize_grammar();
     }
 
+    // Check for First / Follow conflicts
+    for (const std::string& nonterminal : grammar.get_nonterminals()) {
+        std::set<std::string> first_set = grammar.get_first_set(nonterminal);
+        std::set<std::string> follow_set = grammar.get_follow_set(nonterminal);
+
+        if (first_set.count("epsilon") == 1) {
+            // Check sets are disjoint
+            for (const std::string& symbol : first_set) {
+                if (follow_set.count(symbol) != 0) {
+                    spdlog::error("First/Follow conflict detected for non-terminal `{}`. The symbol `{}` appears in both the First and Follow set while `epsilon` is also in the First set", nonterminal, symbol);
+                    return;
+                }
+            }
+        }
+    }
+
     generate();
 }
 
