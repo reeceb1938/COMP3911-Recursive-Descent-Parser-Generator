@@ -165,22 +165,13 @@ bool Generator::generate_source_file() {
         code_file << "\tif (parse_tree_parent == nullptr) {" << std::endl;
         code_file << "\t\tdelete new_node;" << std::endl;
         code_file << "\t\tthrow InternalErrorException(\"Parse tree node pointer is nullptr\");" << std::endl;
+        code_file << "\t} else {" << std::endl;
+        code_file << "\t\tparse_tree_parent->add_child(new_node);" << std::endl;
         code_file << "\t}" << std::endl;
         code_file << std::endl;
 
         generate_production_code(code_file, production.second, 1);
         code_file << std::endl;
-
-        // If the production can disappear then we don't need to add a node for it in the parse tree
-        if (grammar.calculate_first_set(production.second).count("epsilon") == 1) {
-            code_file << "\tif (new_node->get_children().size() > 0) {" << std::endl;
-            code_file << "\t\tparse_tree_parent->add_child(new_node);" << std::endl;
-            code_file << "\t} else {" << std::endl;
-            code_file << "\t\tdelete new_node;" << std::endl;
-            code_file << "\t}" << std::endl;
-        } else {
-            code_file << "\tparse_tree_parent->add_child(new_node);" << std::endl;
-        }
 
         code_file << "}" << std::endl << std::endl;
     }
@@ -242,6 +233,7 @@ bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* eb
             // Handle cases of epsilon, string_literal, identifier, integer_constant
             if (ebnf_token->get_value() == "epsilon") {
                 code_file << "// Produces epsilon so do nothing" << std::endl;
+                code_file << "new_node->add_child(new ParseTreeNode(\"epsilon\"));" << std::endl;
                 success = true;
             } else {
                 indent(code_file, indentation_level);
@@ -362,6 +354,12 @@ bool Generator::generate_production_code(std::ofstream& code_file, EBNFToken* eb
                 code_file << " else {" << std::endl;
                 indent(code_file, indentation_level + 1);
                 code_file << "parsing_error(next_token, \"" << ebnf_token->to_string() << "\");" << std::endl;
+                indent(code_file, indentation_level);
+                code_file << "}" << std::endl;
+            } else {
+                code_file << " else {" << std::endl;
+                indent(code_file, indentation_level + 1);
+                code_file << "new_node->add_child(new ParseTreeNode(\"epsilon\"));" << std::endl;
                 indent(code_file, indentation_level);
                 code_file << "}" << std::endl;
             }
