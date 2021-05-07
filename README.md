@@ -82,3 +82,4 @@ References for external content
 | .gitignore templates | .gitignore | [CC 1.0 Universal](https://github.com/github/gitignore/blob/master/LICENSE) |
 | spdlog | Logging library | [MIT](https://github.com/gabime/spdlog/blob/v1.x/LICENSE) |
 | CustomJACKLexer | Testing | N/A - My work from another project |
+| JACK code files | Testing | Copyright |
