@@ -191,6 +191,11 @@ bool Generator::generate_source_file() {
         code_file << "\t}" << std::endl;
         code_file << std::endl;
 
+        if (production.second == nullptr) {
+            spdlog::error("No productions defined for non-terminal `{}`.", production.first);
+            return false;
+        }
+
         status = generate_production_code(code_file, production.second, 1);
         code_file << std::endl;
 

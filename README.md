@@ -37,12 +37,6 @@ The block of production rules is declared after the non-terminal declaration and
 
 The non-terminal on the left hand side of the first production rule is implicitly the start symbol.
 
-## Behaviour and Assumptions
-
-In this implementation the follow assumptions are made:
-
-- Any non-terminal that does not have any production rules defined for it produces the empty word
-
 ## Build Instructions
 
 To build the main project:
